@@ -88,6 +88,8 @@ internal func dynamicBridgeCast<T>(fromObjectiveC x: Any) -> T {
         return unsafeBitCast(x as AnyObject, to: T.self)
     } else if let bridgeableType = T.self as? CustomObjectiveCBridgeable.Type {
         return bridgeableType.bridging(objCValue: x) as! T
+    } else if T.self == SyncSubscription.self {
+        return SyncSubscription(x as! RLMSyncSubscription) as! T
     } else {
         return x as! T
     }

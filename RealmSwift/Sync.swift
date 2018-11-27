@@ -844,10 +844,6 @@ extension Results where Element == SyncPermission {
 
 // MARK: - Partial sync subscriptions
 
-// Partial sync subscriptions are only available in Swift 3.2 and newer.
-#if swift(>=3.2)
-
-
 /// The possible states of a sync subscription.
 public enum SyncSubscriptionState: Equatable {
     /// The subscription is being created, but has not yet been written to the synced Realm.
@@ -902,7 +898,7 @@ public enum SyncSubscriptionState: Equatable {
 /// Changes to the state of the subscription can be observed using `SyncSubscription.observe(_:options:_:)`.
 ///
 /// Subscriptions are created using `Results.subscribe()` or `Results.subscribe(named:)`.
-public class SyncSubscription<Type: RealmCollectionValue> {
+public class SyncSubscription {
     private let rlmSubscription: RLMSyncSubscription
 
     /// The name of the subscription.
@@ -916,6 +912,9 @@ public class SyncSubscription<Type: RealmCollectionValue> {
     internal init(_ rlmSubscription: RLMSyncSubscription) {
         self.rlmSubscription = rlmSubscription
     }
+
+// Partial sync subscriptions are only observable in Swift 3.2 and newer.
+#if swift(>=3.2)
 
     /// Observe the subscription for state changes.
     ///
@@ -940,6 +939,8 @@ public class SyncSubscription<Type: RealmCollectionValue> {
         }
         return KeyValueObservationNotificationToken(observation)
     }
+
+#endif // Swift >= 3.2
 
     /// Remove this subscription
     ///
@@ -981,7 +982,7 @@ extension Results {
     /// - parameter subscriptionName: An optional name for the subscription.
     /// - parameter limit: The maximum number of objects to include in the subscription.
     /// - returns: The subscription.
-    public func subscribe(named subscriptionName: String? = nil, limit: Int? = nil) -> SyncSubscription<Element> {
+    public func subscribe(named subscriptionName: String? = nil, limit: Int? = nil) -> SyncSubscription {
         if let limit = limit {
             return SyncSubscription(rlmResults.subscribe(withName: subscriptionName, limit: UInt(limit)))
         }
@@ -992,6 +993,7 @@ extension Results {
     }
 }
 
+#if swift(>=3.2)
 internal class KeyValueObservationNotificationToken: NotificationToken {
     public var observation: NSKeyValueObservation?
 
@@ -1499,6 +1501,14 @@ extension Realm {
     */
     public var permissions: List<Permission> {
         return object(ofType: RealmPermission.self, forPrimaryKey: 0)!.permissions
+    }
+
+//    public func subscriptions() -> Results<SyncSubscription> {
+//        return Results(rlmRealm.subscriptions())
+//    }
+
+    public func subscription(named: String) -> SyncSubscription? {
+        return rlmRealm.subscription(withName: named).map(SyncSubscription.init)
     }
 }
 

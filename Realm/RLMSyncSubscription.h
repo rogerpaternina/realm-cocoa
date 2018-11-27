@@ -16,6 +16,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////
 
+#import <Realm/RLMRealm.h>
 #import <Realm/RLMResults.h>
 
 NS_ASSUME_NONNULL_BEGIN
@@ -54,13 +55,18 @@ typedef NS_ENUM(NSInteger, RLMSyncSubscriptionState) {
 /**
  `RLMSyncSubscription` represents a subscription to a set of objects in a synced Realm.
 
- When partial sync is enabled for a synced Realm, the only objects that the server synchronizes to the
- client are those that match a sync subscription registered by that client. A subscription consists of
- of a query (represented by an `RLMResults`) and an optional name.
+ When query-based sync is enabled for a synchronized Realm, the server only
+ synchronizes objects to the client when they match a sync subscription
+ registered by that client. A subscription consists of of a query (represented
+ by an `RLMResults`) and an optional name.
 
- The state of the subscription can be observed using [Key-Value Observing](https://developer.apple.com/library/content/documentation/Cocoa/Conceptual/KeyValueObserving/KeyValueObserving.html) on the `state` property.
+ The state of the subscription can be observed using
+ [Key-Value Observing](https://developer.apple.com/library/content/documentation/Cocoa/Conceptual/KeyValueObserving/KeyValueObserving.html)
+ on the `state` property.
 
- Subscriptions are created using `-[RLMResults subscribe]` or `-[RLMResults subscribeWithName:]`.
+ Subscriptions are created using `-[RLMResults subscribe]` or
+ `-[RLMResults subscribeWithName:]`. Existing subscriptions for a Realm can be
+ looked up with `-[RLMRealm subscriptions]` or `-[RLMRealm subscriptionWithName:]`.
  */
 @interface RLMSyncSubscription : NSObject
 
@@ -72,12 +78,12 @@ typedef NS_ENUM(NSInteger, RLMSyncSubscriptionState) {
 @property (nonatomic, readonly, nullable) NSString *name;
 
 /**
- The state of the subscription. See `RLMSyncSubscriptionState`.
+ The current state of the subscription. See `RLMSyncSubscriptionState`.
  */
 @property (nonatomic, readonly) RLMSyncSubscriptionState state;
 
 /**
- The error associated with this subscription, if any.
+ The error which occurred when registering this subscription, if any.
 
  Will be non-nil only when `state` is `RLMSyncSubscriptionStateError`.
  */
@@ -86,10 +92,15 @@ typedef NS_ENUM(NSInteger, RLMSyncSubscriptionState) {
 /**
  Remove this subscription.
 
- Removing a subscription will delete all objects from the local Realm that were matched
- only by that subscription and not any remaining subscriptions. The deletion is performed
- by the server, and so has no immediate impact on the contents of the local Realm. If the
- device is currently offline, the removal will not be processed until the device returns online.
+ Removing a subscription will delete all objects from the local Realm that were
+ matched only by that subscription and not any remaining subscriptions. The
+ deletion is performed by the server, and so has no immediate impact on the
+ contents of the local Realm. If the device is currently offline, the removal
+ will not be processed until the device returns online.
+
+ Unsubscribing is an asynchronous operation and will not immediately remove the
+ subscription from the Realm's list of subscriptions. Observe the state property
+ to be notified of when the subscription has actually been removed.
  */
 - (void)unsubscribe;
 
@@ -148,6 +159,11 @@ typedef NS_ENUM(NSInteger, RLMSyncSubscriptionState) {
  performing the same subscription twice followed by removing it once will
  result in no subscription existing.
 
+ The newly created subscription will not be reported by
+ `-[RLMRealm subscriptions]` or `-[RLMRealm subscriptionWithName:]` until
+ `state` has transitioned from `RLMSyncSubscriptionStateCreating` to any of the
+ other states.
+
  @param subscriptionName The name of the subscription
 
  @return The subscription
@@ -173,14 +189,17 @@ typedef NS_ENUM(NSInteger, RLMSyncSubscriptionState) {
  performing the same subscription twice followed by removing it once will
  result in no subscription existing.
 
+ The newly created subscription will not be reported by
+ `-[RLMRealm subscriptions]` or `-[RLMRealm subscriptionWithName:]` until
+ `state` has transitioned from `RLMSyncSubscriptionStateCreating` to any of the
+ other states.
+
  The number of top-level matches may optionally be limited. This limit
  respects the sort and distinct order of the query being subscribed to,
  if any. Please note that the limit does not count or apply to objects
  which are added indirectly due to being linked to by the objects in the
  subscription. If the limit is larger than the number of objects which
- match the query, all objects will be included. Limiting a subscription
- requires ROS 3.10.1 or newer, and will fail with an invalid predicate
- error with older versions.
+ match the query, all objects will be included.
 
  @param subscriptionName The name of the subscription
  @param limit The maximum number of objects to include in the subscription.
@@ -190,6 +209,17 @@ typedef NS_ENUM(NSInteger, RLMSyncSubscriptionState) {
  @see RLMSyncSubscription
  */
 - (RLMSyncSubscription *)subscribeWithName:(nullable NSString *)subscriptionName limit:(NSUInteger)limit;
+@end
+
+@interface RLMRealm (SyncSubscription)
+- (RLMResults<RLMSyncSubscription *> *)subscriptions;
+
+/**
+ Look up a specific sync subscription by name.
+
+ 
+ */
+- (nullable RLMSyncSubscription *)subscriptionWithName:(NSString *)name;
 @end
 
 NS_ASSUME_NONNULL_END

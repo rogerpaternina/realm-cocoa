@@ -539,6 +539,26 @@ class SwiftObjectServerTests: SwiftSyncTestCase {
         }
     }
 
+    func testPartialSyncSubscriptions() {
+        let credentials = SyncCredentials.usernamePassword(username: #function, password: "a", register: true)
+        let user = try! synchronouslyLogInUser(for: credentials, server: authURL)
+        let realm = try! synchronouslyOpenRealm(configuration: user.configuration())
+
+        XCTAssertEqual(realm.subscriptions().count, 0)
+        XCTAssertNil(realm.subscription(named: "query"))
+
+        let subscription = realm.objects(SwiftPartialSyncObjectA.self).filter("number > 5").subscribe(named: "query")
+        waitForState(subscription, .complete)
+
+        XCTAssertEqual(realm.subscriptions().count, 1)
+        let sub2 = realm.subscriptions().first!
+        XCTAssertEqual(sub2.name, "query")
+        XCTAssertEqual(sub2.state, .complete)
+        let sub3 = realm.subscription(named: "query"))
+        XCTAssertEqual(sub3.name, "query")
+        XCTAssertEqual(sub3.state, .complete)
+    }
+
     func waitForState<T>(_ subscription: SyncSubscription<T>, _ desiredState: SyncSubscriptionState) {
         let ex = expectation(description: "Waiting for state \(desiredState)")
         let token = subscription.observe(\.state, options: .initial) { state in
